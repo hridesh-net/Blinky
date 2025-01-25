@@ -1,3 +1,5 @@
+![header](BlinkyHeader.png)
+
 # Blinky - The Interactive Team To-Do Bot 🎯
 
 Blinky is a **Discord bot** designed to make daily tasks more interactive and fun for teams. It encourages team members to submit their daily to-dos, track their progress, and earn rewards like kudos and streaks. **No more boring to-do lists! Blinky gamifies productivity in your Discord workspace.** 🎮✨
