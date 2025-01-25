@@ -15,7 +15,7 @@ def get_team_channel(user_id, guild_id):
     """
     Fetch the correct team channel for the user.
     """
-    from app.db.session import SessionLocal
+    from db.session import SessionLocal
 
     db = SessionLocal()
 
