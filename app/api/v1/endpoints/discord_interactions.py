@@ -6,7 +6,7 @@ import json
 import requests
 
 from app.utils.post_utilities import post_to_grp
-from app.core.cmd.slash_cmd import set_team_channel, add_team_member, submit_todo, model_resp
+from app.services.cmd.slash_cmd import set_team_channel, add_team_member, submit_todo, model_resp
 
 router = APIRouter()
 
