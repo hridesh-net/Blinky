@@ -31,7 +31,7 @@ def get_team_channel(user_id, guild_id):
     return channel_id
 
 
-def get_channel_members(channel_id):
+def get_channel_members(channel_id): # update with mebers.py
     """Fetch members of a given channel using Discord API."""
     url = f"https://discord.com/api/v10/channels/{channel_id}/recipients"
     headers = {
@@ -40,6 +40,7 @@ def get_channel_members(channel_id):
     }
 
     response = requests.get(url, headers=headers)
+    print(response)
     return response.json() if response.status_code == 200 else []
 
 

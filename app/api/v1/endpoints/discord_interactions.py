@@ -1,9 +1,11 @@
+import json
+import requests
+import httpx
 from fastapi import APIRouter, Header, HTTPException, Request
 from nacl.signing import VerifyKey
 from nacl.exceptions import BadSignatureError
 from app.core.config import settings
-import json
-import requests
+
 
 from app.utils.post_utilities import post_to_grp
 from app.services.cmd.slash_cmd import set_team_channel, add_team_member, submit_todo, model_resp

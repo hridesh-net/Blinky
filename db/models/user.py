@@ -36,4 +36,4 @@ class User(Base):
     audit_logs = relationship("AuditLog", back_populates="user", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
 
-# User.led_team = relationship('Team', back_populates='leader', uselist=False, foreign_keys=[Team.leader_id])
+# User.led_team = relationship('Team', back_populates='leader', uselist=False, foreign_keys=[Team.leader_id])\
