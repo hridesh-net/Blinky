@@ -1,0 +1,59 @@
+[project]
+name = "blinky"
+version = "0.1.0"
+description = "Blinky is a Discord bot designed to make daily tasks more interactive and fun for teams. It encourages team members to submit their daily to-dos, track their progress, and earn rewards like kudos and streaks. No more boring to-do lists! Blinky gamifies productivity in your Discord workspace."
+authors = [
+    {name = "Hridesh sharma",email = "61771411+hridesh-net@users.noreply.github.com"}
+]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "alembic (==1.14.1)",
+    "annotated-types (==0.7.0)",
+    "anyio (==4.8.0)",
+    "bcrypt (==4.2.1)",
+    "boto3 (==1.36.5)",
+    "botocore (==1.36.5)",
+    "certifi (==2024.12.14)",
+    "cffi (==1.17.1)",
+    "charset-normalizer (==3.4.1)",
+    "click (==8.1.8)",
+    "fastapi (==0.115.7)",
+    "h11 (==0.14.0)",
+    "httpcore (==1.0.7)",
+    "httpx (==0.28.1)",
+    "idna (==3.10)",
+    "jmespath (==1.0.1)",
+    "libnacl (==2.1.0)",
+    "mako (==1.3.8)",
+    "markupsafe (==3.0.2)",
+    "passlib (==1.7.4)",
+    "psycopg2-binary (==2.9.10)",
+    "pycparser (==2.22)",
+    "pydantic (==2.10.6)",
+    "pydantic-core (==2.27.2)",
+    "pynacl (==1.5.0)",
+    "python-dateutil (==2.9.0.post0)",
+    "python-dotenv (==1.0.1)",
+    "requests (==2.32.3)",
+    "s3transfer (==0.11.2)",
+    "six (==1.17.0)",
+    "sniffio (==1.3.1)",
+    "sqlalchemy (==2.0.37)",
+    "starlette (==0.45.2)",
+    "typing-extensions (==4.12.2)",
+    "urllib3 (==2.3.0)",
+    "uvicorn (==0.34.0)",
+    "websockets (==14.2)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.dependencies]
+python = ">=3.12,<4.0"
+
+[tool.poetry.scripts]
+start = "uvicorn main:app --reload"
