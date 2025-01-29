@@ -13,6 +13,30 @@ from app.services.cmd.slash_cmd import set_team_channel, add_team_member, submit
 router = APIRouter()
 
 
+async def defer_interaction(interaction_id, interaction_token):
+    url = f"https://discord.com/api/v10/interactions/{interaction_id}/{interaction_token}/callback"
+    json_data = {"type": 5}  # DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
+    headers = {
+        "Authorization": f"Bot {settings.DISCORD_TOKEN}",
+        "Content-Type": "application/json",
+    }
+    async with httpx.AsyncClient() as client:
+        await client.post(url, json=json_data, headers=headers)
+
+
+async def send_followup_message(interaction_token, message_data):
+    url = f"https://discord.com/api/v10/webhooks/{settings.APPLICATION_ID}/{interaction_token}"
+    headers = {
+        "Authorization": f"Bot {settings.DISCORD_TOKEN}",
+        "Content-Type": "application/json",
+    }
+    print(f"Sending followup message: {message_data}")
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, json=message_data, headers=headers)
+        print(f"Response status: {response.status_code}")
+        print(f"Response content: {response.text}")
+
+
 @router.post("/interactions")
 async def interactions(
     request: Request,
@@ -41,19 +65,26 @@ async def interactions(
     if payload["type"] == 2:  # Application Command
         command_name = payload["data"]["name"]
         guild_id = payload["guild_id"]
+        interaction_token = payload["token"]
+        interaction_id = payload["id"]
+        
+        await defer_interaction(interaction_id, interaction_token)
 
         if command_name == "your_command":
             # Handle your specific command
             return {"type": 4, "data": {"content": "Command received!"}}
 
         if command_name == "set_team_channel":
-            return set_team_channel(payload, guild_id)
-
-        if command_name == "add_team_member":
-            return add_team_member(payload, guild_id)
-
-        if command_name == "submit_todo":
-            return submit_todo(payload, guild_id)
+            response_data = await set_team_channel(payload, guild_id)
+        elif command_name == "add_team_member":
+            response_data = await add_team_member(payload, guild_id)
+        elif command_name == "submit_todo":
+            response_data = await submit_todo(payload, guild_id)
+        else:
+            response_data = {"content": "Unhandled command."}
+        
+        
+        await send_followup_message(interaction_token, response_data.get("data"))
 
     if payload["type"] == 3:  # Message Component (e.g., button click)
         custom_id = payload["data"]["custom_id"]
@@ -85,6 +116,6 @@ async def interactions(
             }
 
     if payload["type"] == 5:  # Modal Submit
-        return model_resp(payload)
+        return await model_resp(payload)
 
     return {"type": 4, "data": {"content": "Unhandled interaction type."}}
