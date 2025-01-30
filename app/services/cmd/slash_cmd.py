@@ -281,10 +281,11 @@ async def handle_task_selection(user_id, guild_id, payload):
         if not is_weekend:
             reward.streak += 1
 
-        if reward.streak % 7 == 0:  # Bonus every 7 days
-            streak_bonus = 5  # Example bonus value
-            reward.kudos += streak_bonus
-            reward.streak = 0
+        if completed_task_count > 0:
+            if reward.streak % 7 == 0:  # Bonus every 7 days
+                streak_bonus = 5  # Example bonus value
+                reward.kudos += streak_bonus
+                reward.streak = 0
 
     else:
         reward.kudos += completed_task_count
