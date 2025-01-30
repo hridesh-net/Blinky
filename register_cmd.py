@@ -54,4 +54,10 @@ commands = [
     },
 ]
 
-register_test_cmd(commands=commands)
+task_comp = [{
+    "name": "manage_tasks",
+    "description": "View and manage your tasks for today",
+    "options": [],
+}]
+
+register_test_cmd(commands=task_comp)

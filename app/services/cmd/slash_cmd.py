@@ -1,96 +1,19 @@
-import httpx
-import requests
-from datetime import date
+from datetime import date, datetime
 
 from sqlalchemy.orm import Session
 
 from db.models.team import Team
 from db.models.task import Task
 from db.models.user import User
+from db.models.reward import Reward, RewardReason
 from app.core.config import settings
 from db.session import SessionLocal
 from app.utils.post_utilities import post_to_grp
+from app.crud.task import get_user_tasks
 
-
-async def get_team_channel(user_id, guild_id):
-    """
-    Fetch the correct team channel for the user.
-    """
-    from db.session import SessionLocal
-
-    db = SessionLocal()
-
-    # Fetch the user and their team
-    user = db.query(User).filter_by(user_id=user_id, guild_id=guild_id).first()
-
-    if user and user.team:
-        channel_id = user.team.channel_id  # Get the team's assigned channel
-    else:
-        channel_id = None  # No team assigned
-
-    db.close()
-    return channel_id
-
-
-async def fetch_guild_members(guild_id):
-    HEADERS = {
-        "Authorization": f"Bot {settings.DISCORD_TOKEN}",
-        "Content-Type": "application/json",
-    }
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"https://discord.com/api/v10/guilds/{guild_id}/members?limit=1000",
-            headers=HEADERS,
-        )
-        return response.json()
-    
-
-async def fetch_channel_permissions(channel_id):
-    HEADERS = {
-        "Authorization": f"Bot {settings.DISCORD_TOKEN}",
-        "Content-Type": "application/json",
-    }
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f'https://discord.com/api/v10/channels/{channel_id}',
-            headers=HEADERS
-        )
-        return response.json()
-
-
-async def get_team_members(channel_id, guild_id):
-    """Fetch members of a given channel using Discord API."""
-    total_members = await fetch_guild_members(guild_id)
-    channel = await fetch_channel_permissions(channel_id)
-    
-    permission_overwrites = channel.get('permission_overwrites', [])
-    members_with_access = []
-    for member in total_members:
-        member_roles = member.get('roles', [])
-        for overwrite in permission_overwrites:
-            if overwrite['id'] in member_roles or overwrite['id'] == member['user']['id']:
-                if overwrite['allow'] != '0':
-                    members_with_access.append(member)
-                    break
-    
-    for member in members_with_access:
-        user = member['user']
-        print(f"User ID: {user['id']}, Username: {user['username']}#{user['discriminator']}")
-    
-    return members_with_access
-
-
-async def get_channel_members(channel_id):
-    """Fetch members of a given channel using Discord API."""
-    url = f"https://discord.com/api/v10/channels/{channel_id}/recipients"
-    headers = {
-        "Authorization": f"Bot {settings.DISCORD_TOKEN}",
-        "Content-Type": "application/json",
-    }
-
-    response = requests.get(url, headers=headers)
-    print(response)
-    return response.json() if response.status_code == 200 else []
+from app.utils.reward_audit import add_reward_transaction
+from app.utils.server_utils import get_team_channel, get_team_members
+from app.utils.base_utils import get_user_now
 
 
 async def save_team_and_add_members(team_name, guild_id, channel_id):
@@ -116,13 +39,22 @@ async def save_team_and_add_members(team_name, guild_id, channel_id):
             username = member["user"]["username"]
             name = member["user"]["global_name"]
 
-            # Check if user exists
-            user = db.query(User).filter_by(user_id=user_id, guild_id=guild_id, is_active=True).first()
+            user = (
+                db.query(User)
+                .filter_by(user_id=user_id, guild_id=guild_id, is_active=True)
+                .first()
+            )
             if not user:
-                user = User(user_id=user_id, name=name, username=username, guild_id=guild_id, is_active=True)
-                user.set_password('secure_password')
+                user = User(
+                    user_id=user_id,
+                    name=name,
+                    username=username,
+                    guild_id=guild_id,
+                    is_active=True,
+                )
+                user.set_password("secure_password")
                 db.add(user)
-                db.commit()  # Commit to generate the user.id
+                db.commit()
 
             # Add user to team if not already a member
             if user not in team.members:
@@ -212,20 +144,32 @@ async def model_resp(payload):
                 name=name,
                 username=user_name,
                 is_active=True,
+                in_est=True,
             )
             user.set_password("secure_password")
             db.add(user)
             db.commit()
             db.refresh(user)
 
+        user_now = get_user_now(user)
+        today = user_now.date()
+        
         for task in user_input.split("|"):
             new_task = Task(
-                user_id=user.id, description=task.strip(), date=date.today()
+                user_id=user.id, description=task.strip(), date=today
             )
             db.add(new_task)
         db.commit()
-        db.close()
+        # db.close()
+        rewards = db.query(Reward).filter_by(user_id=user.id).first()
+        print(f"Rewards: {rewards.kudos} and {rewards.streak}")
 
+        kwargs = {
+            "kudos": rewards.kudos if rewards else 0,
+            "streak": rewards.streak if rewards else 0,
+        }
+
+        db.close()
 
         post_to_grp(
             "1332261881267879988",
@@ -234,8 +178,135 @@ async def model_resp(payload):
             user_input,
             user_id,
             avatar_hash,
+            **kwargs,
         )
         return {
             "type": 4,
             "data": {"content": "✅ Your To-Do list has been saved!"},
         }
+
+
+async def manage_tasks(user_id, guild_id, payload):
+    user_id = payload["member"]["user"]["id"]
+    db = SessionLocal()
+    tasks = get_user_tasks(db, user_id)
+
+    if not tasks:
+        return {
+            "type": 4,
+            "data": {
+                "content": "You have no tasks for today.",
+                "flags": 64,  # Ephemeral message
+            },
+        }
+
+    options = []
+    for task in tasks:
+        options.append(
+            {
+                "label": f"{task.description}",
+                "value": f"{task.id}",
+                "default": task.is_completed,
+                "emoji": {"name": "✅" if task.is_completed else "❌"},
+            }
+        )
+
+    select_menu = {
+        "type": 3,
+        "custom_id": "select_tasks",
+        "options": options,
+        "placeholder": "Select tasks you've completed",
+        "min_values": 1,
+        "max_values": len(options),
+    }
+
+    return {
+        "data": {
+            "content": "Here are your tasks for today:",
+            "components": [{"type": 1, "components": [select_menu]}],
+            "flags": 64,  # Ephemeral message
+        }
+    }
+
+
+async def handle_task_selection(user_id, guild_id, payload):
+    """Updates tasks in DB and manages streak/kudos logic."""
+
+    db = SessionLocal()
+
+    selected_task_ids = payload["data"]["values"]
+    user = db.query(User).filter_by(user_id=user_id).first()
+    if not user:
+        db.close()
+        return {"type": 4, "data": {"content": "❌ User not found!"}}
+
+    user_now = get_user_now(user)
+    today = user_now.date()
+    user_tasks = (
+        db.query(Task).filter(Task.user_id == user.id, Task.date == today).all()
+    )
+
+    if not user_tasks:
+        db.close()
+        return {"type": 4, "data": {"content": "❌ No tasks found for today!"}}
+
+    completed_task_count = 0
+    for task in user_tasks:
+        print(f"Task ID: {task.id}, Completed: {task.is_completed}")
+        if str(task.id) in selected_task_ids:
+            print("full")
+            if not task.is_completed:
+                task.is_completed = True
+                completed_task_count += 1
+
+    db.commit()
+
+    all_completed = all(task.is_completed for task in user_tasks)
+
+    reward = db.query(Reward).filter_by(user_id=user.id).first()
+    if not reward:
+        reward = Reward(user_id=user.id, kudos=0, streak=0)
+        db.add(reward)
+        db.commit()
+
+    today_weekday = today.weekday()  # Monday = 0, Sunday = 6
+    is_weekend = today_weekday >= 5
+
+    kudos_to_add = completed_task_count  # 1 kudos per completed task
+    streak_bonus = 0
+
+    if all_completed:
+        reward.kudos += completed_task_count
+
+        if not is_weekend:
+            reward.streak += 1
+
+        if reward.streak % 7 == 0:  # Bonus every 7 days
+            streak_bonus = 5  # Example bonus value
+            reward.kudos += streak_bonus
+            reward.streak = 0
+
+    else:
+        reward.kudos += completed_task_count
+
+    db.commit()
+    if kudos_to_add > 0:
+        add_reward_transaction(
+            db, user.id, kudos_to_add, "credit", RewardReason.TASK_COMPLETION
+        )
+    if streak_bonus > 0:
+        add_reward_transaction(
+            db, user.id, streak_bonus, "credit", RewardReason.STREAK_BONUS
+        )
+
+    message = f"✅ Tasks updated! You earned {completed_task_count} Kudos."
+    if all_completed:
+        if not is_weekend:  # Only show streak for weekdays
+            message += f" Your streak is now {reward.streak} days."
+        if reward.streak % 7 == 0:
+            message += f" 🎉 You earned a streak bonus of 5 Kudos!"
+    else:
+        message += " Complete all tasks by EOD to maintain your streak."
+
+    db.close()
+    return {"type": 4, "data": {"content": message}}

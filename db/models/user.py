@@ -25,6 +25,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     manager_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     guild_id = Column(String, nullable=True)
+    in_est = Column(Boolean, default=True)
 
     # Relationships
     teams = relationship("Team", secondary=team_members, back_populates="members")  # Many-to-Many
