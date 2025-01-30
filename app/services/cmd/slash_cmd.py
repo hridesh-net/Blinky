@@ -153,11 +153,9 @@ async def model_resp(payload):
 
         user_now = get_user_now(user)
         today = user_now.date()
-        
+
         for task in user_input.split("|"):
-            new_task = Task(
-                user_id=user.id, description=task.strip(), date=today
-            )
+            new_task = Task(user_id=user.id, description=task.strip(), date=today)
             db.add(new_task)
         db.commit()
         # db.close()
@@ -310,4 +308,4 @@ async def handle_task_selection(user_id, guild_id, payload):
         message += " Complete all tasks by EOD to maintain your streak."
 
     db.close()
-    return {"type": 4, "data": {"content": message}}
+    return {"type": 4, "data": {"content": message, "flags": 64}}
