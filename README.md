@@ -1,4 +1,4 @@
-![header](BlinkyHeader.png)
+![header](Turons%20%Letter%20%(3).png)
 
 # Blinky - The Interactive Team To-Do Bot 🎯
 
